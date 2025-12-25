@@ -9,32 +9,24 @@ print(f"🔥 GEMINI_API_KEY = {'LOADED' if os.getenv('GEMINI_API_KEY') else 'NON
 
 app = FastAPI(title="VitalMotion API")
 
-# 2. CORS (SMART CONFIG)
-# This allows both your local dev server and your real website domain.
-origins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "https://vitalmotion.xyz",
-    "https://www.vitalmotion.xyz",
-    "https://vitalmotion-frontend.vercel.app",
-]
-
+# 2. UNIVERSAL CORS CONFIG (Optimized for Vercel + Render)
+# This removes the "Blocked by CORS" error by allowing all origins.
+# Since you use JWT tokens, allow_credentials=False is the correct setting.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=["*"],      # Allows all domains (fixes Vercel connection)
+    allow_credentials=False,   # Must be False when using "*"
+    allow_methods=["*"],      # Allows all actions (GET, POST, OPTIONS, etc.)
+    allow_headers=["*"],      # Allows Authorization and Content-Type headers
 )
 
-# 3. ROUTER REGISTRATION (FIXED PREFIXES)
+# 3. ROUTER REGISTRATION
 from app.routers import (
     health, ai, sensor, alerts, ingest,
     auth_doctor, admin, auth, chat, vision
 )
 
-# NOTE: If your routers (auth.py, etc.) already have prefix="/auth",
-# do NOT add prefix="/auth" here or you get /auth/auth/login.
+# Include routers
 app.include_router(auth.router)
 app.include_router(auth_doctor.router)
 app.include_router(ai.router)
@@ -48,4 +40,7 @@ app.include_router(vision.router)
 
 @app.get("/")
 def home():
-    return {"status": "VitalMotion API is Online"}
+    return {
+        "status": "VitalMotion API is Online",
+        "message": "CORS set to Universal Mode"
+    }
