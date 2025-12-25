@@ -16,6 +16,7 @@ origins = [
     "http://127.0.0.1:5173",
     "https://vitalmotion.xyz",
     "https://www.vitalmotion.xyz",
+    "https://vitalmotion-frontend.vercel.app",
 ]
 
 app.add_middleware(
