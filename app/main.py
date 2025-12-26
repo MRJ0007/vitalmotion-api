@@ -26,6 +26,8 @@ origins = [
     "http://127.0.0.1:5173",
     "https://vitalmotion-ui.vercel.app",
     "https://vitalmotion-ui.onrender.com",
+    "https://www.vitalmotion.xyz",             # Your new domain
+    "https://vitalmotion.xyz",
 ]
 
 app.add_middleware(
