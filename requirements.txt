@@ -1,27 +1,28 @@
 # --- Web Server & Framework ---
-fastapi>=0.115.0
-uvicorn[standard]>=0.30.0
+fastapi==0.124.4
+uvicorn[standard]==0.38.0
 gunicorn
 
 # --- AI & Cloud Services ---
-google-generativeai>=0.8.0
-azure-ai-textanalytics>=5.3.0
-twilio>=9.0.0
+google-generativeai==0.8.5
+azure-ai-textanalytics==5.3.0
+twilio==9.8.8
 
 # --- Database & Environment ---
-pymongo>=4.9.0
-motor>=3.6.0
-python-dotenv>=1.0.1
+pymongo==4.15.5
+motor
+python-dotenv==1.2.1
 
-# --- Security & Auth (The Fix) ---
-PyJWT>=2.10.0
-bcrypt>=4.2.0
-python-multipart>=0.0.12
-email-validator>=2.2.0
+# --- Security & Auth ---
+PyJWT==2.10.1
+passlib[bcrypt]==1.7.4
+email-validator==2.3.0
+python-jose[cryptography]
 
 # --- Networking & Utils ---
-pydantic[email]>=2.9.0
-requests>=2.32.0
-httpx>=0.27.0
+pydantic[email]==2.12.5
+requests==2.32.5
+httpx==0.28.1
 azure-ai-vision-imageanalysis
 azure-core
+python-multipart

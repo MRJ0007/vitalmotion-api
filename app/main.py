@@ -5,28 +5,35 @@ from dotenv import load_dotenv
 
 # 1. LOAD ENV FIRST
 load_dotenv()
-print(f"🔥 GEMINI_API_KEY = {'LOADED' if os.getenv('GEMINI_API_KEY') else 'NONE'}")
+
+# Verify Gemini API Key (Logic Preserved)
+gemini_key = os.getenv("GEMINI_API_KEY")
+print(f"🔥 GEMINI_API_KEY = {'LOADED' if gemini_key else 'NONE'}")
 
 app = FastAPI(title="VitalMotion API")
 
-# 2. UNIVERSAL CORS CONFIG (Optimized for Vercel + Render)
-# This removes the "Blocked by CORS" error by allowing all origins.
-# Since you use JWT tokens, allow_credentials=False is the correct setting.
+# 2. CORS CONFIG (Fixed for Local + Production Handshake)
+# Logic: We explicitly list localhost to allow Authorization headers.
+origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://vitalmotion-ui.vercel.app",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],      # Allows all domains (fixes Vercel connection)
-    allow_credentials=False,   # Must be False when using "*"
-    allow_methods=["*"],      # Allows all actions (GET, POST, OPTIONS, etc.)
-    allow_headers=["*"],      # Allows Authorization and Content-Type headers
+    allow_origins=origins,
+    allow_credentials=True, # Required for Bearer tokens and local development
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-# 3. ROUTER REGISTRATION
+# 3. ROUTER REGISTRATION (Logic Preserved)
 from app.routers import (
     health, ai, sensor, alerts, ingest,
     auth_doctor, admin, auth, chat, vision
 )
 
-# Include routers
 app.include_router(auth.router)
 app.include_router(auth_doctor.router)
 app.include_router(ai.router)
@@ -42,5 +49,6 @@ app.include_router(vision.router)
 def home():
     return {
         "status": "VitalMotion API is Online",
-        "message": "CORS set to Universal Mode"
+        "message": "CORS set to Explicit Origin Mode",
+        "gemini_status": "Active" if gemini_key else "Inactive"
     }

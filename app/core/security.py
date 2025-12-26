@@ -1,27 +1,53 @@
-import bcrypt
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+import jwt  # PyJWT logic preserved here
+import os
+import hashlib
+import base64
+from datetime import datetime, timedelta, timezone
 
+# -------------------------------------------------
+# CONFIG (Logic Preserved)
+# -------------------------------------------------
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+SECRET_KEY = os.getenv("JWT_SECRET", "your-super-secret-key-123")
+ALGORITHM = "HS256"
+
+from passlib.context import CryptContext
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
+
+# -------------------------------------------------
+# HASHING (Logic: PBKDF2 + 72-byte fix)
+# -------------------------------------------------
 def hash_password(password: str) -> str:
-    """
-    Hashes a password for secure storage.
-    """
-    # Convert string to bytes
-    # Truncate to 72 bytes to avoid ValueError in bcrypt 5.0+
-    password_bytes = password.encode('utf-8')[:72]
+    pw_hash = base64.b64encode(hashlib.sha256(password.encode("utf-8")).digest()).decode("utf-8")
+    return pwd_context.hash(pw_hash)
 
-    # Generate a salt and hash the password
-    salt = bcrypt.gensalt()
-    hashed_password = bcrypt.hashpw(password_bytes, salt)
+def verify_password(plain: str, hashed: str) -> bool:
+    pw_hash = base64.b64encode(hashlib.sha256(plain.encode("utf-8")).digest()).decode("utf-8")
+    return pwd_context.verify(pw_hash, hashed)
 
-    # Return as a string for database storage
-    return hashed_password.decode('utf-8')
+# -------------------------------------------------
+# JWT & ROLE LOGIC (Logic Preserved)
+# -------------------------------------------------
+def create_access_token(data: dict, expires_delta: timedelta = None):
+    to_encode = data.copy()
+    expire = datetime.now(timezone.utc) + (expires_delta if expires_delta else timedelta(minutes=60))
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """
-    Checks if a plain-text password matches the stored hash.
-    """
-    # Convert string to bytes
-    password_bytes = plain_password.encode('utf-8')[:72]
-    hashed_bytes = hashed_password.encode('utf-8')
+def get_current_user(token: str = Depends(oauth2_scheme)):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return payload
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token has expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
 
-    # Direct bcrypt check
-    return bcrypt.checkpw(password_bytes, hashed_bytes)
+def require_role(role: str):
+    def checker(user=Depends(get_current_user)):
+        if user.get("role") != role:
+            raise HTTPException(status_code=403, detail=f"Access denied. Requires {role} role.")
+        return user
+    return checker
