@@ -1,6 +1,7 @@
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from dotenv import load_dotenv
 
 # -------------------------------------------------
@@ -18,7 +19,7 @@ app = FastAPI(title="VitalMotion API")
 
 # -------------------------------------------------
 # 3. CORS CONFIGURATION (LOCAL + PRODUCTION)
-# IMPORTANT: MUST BE BEFORE ROUTERS
+# MUST BE BEFORE ROUTERS
 # -------------------------------------------------
 origins = [
     "http://localhost:5173",
@@ -30,13 +31,21 @@ origins = [
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_credentials=True,      # required for Authorization header
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # -------------------------------------------------
-# 4. ROUTER IMPORTS (AFTER CORS)
+# 4. GLOBAL OPTIONS HANDLER (CRITICAL FIX)
+# Prevents auth dependencies from blocking preflight
+# -------------------------------------------------
+@app.options("/{full_path:path}")
+async def preflight_handler(request: Request, full_path: str):
+    return Response(status_code=200)
+
+# -------------------------------------------------
+# 5. ROUTER IMPORTS (AFTER CORS + OPTIONS)
 # -------------------------------------------------
 from app.routers import (
     health,
@@ -52,7 +61,7 @@ from app.routers import (
 )
 
 # -------------------------------------------------
-# 5. ROUTER REGISTRATION
+# 6. ROUTER REGISTRATION
 # -------------------------------------------------
 app.include_router(auth.router)
 app.include_router(auth_doctor.router)
@@ -66,12 +75,12 @@ app.include_router(admin.router)
 app.include_router(vision.router)
 
 # -------------------------------------------------
-# 6. ROOT / HEALTH CHECK
+# 7. ROOT / HEALTH CHECK
 # -------------------------------------------------
 @app.get("/")
 def home():
     return {
         "status": "VitalMotion API is Online",
-        "cors_mode": "Explicit Origin Whitelist",
+        "cors": "Explicit whitelist + global OPTIONS handler",
         "gemini_status": "Active" if gemini_key else "Inactive",
     }
