@@ -1,47 +1,61 @@
 import os
-import asyncio
-from azure.ai.vision.imageanalysis import ImageAnalysisClient
-from azure.ai.vision.imageanalysis.models import VisualFeatures
-from azure.core.credentials import AzureKeyCredential
+import requests
+
+VISION_ENDPOINT = os.getenv("VISION_ENDPOINT")
+VISION_KEY = os.getenv("VISION_KEY")
 
 class AzureVisionService:
-    def __init__(self):
-        self.client = ImageAnalysisClient(
-            endpoint=os.getenv("VISION_ENDPOINT"),
-            credential=AzureKeyCredential(os.getenv("VISION_KEY"))
+    def analyze_clinical_image(self, image_bytes: bytes):
+        if not VISION_ENDPOINT or not VISION_KEY:
+            raise RuntimeError("VISION_ENDPOINT or VISION_KEY is missing")
+
+        # Image Analysis v4 (production-safe)
+        url = f"{VISION_ENDPOINT.rstrip('/')}/computervision/imageanalysis:analyze"
+
+        params = {
+            "api-version": "2023-10-01",
+            "features": "read,tags",
+            "language": "en"
+        }
+
+        headers = {
+            "Ocp-Apim-Subscription-Key": VISION_KEY,
+            "Content-Type": "application/octet-stream"
+        }
+
+        response = requests.post(
+            url,
+            headers=headers,
+            params=params,
+            data=image_bytes,
+            timeout=30
         )
 
-    async def analyze_clinical_image(self, image_bytes: bytes):
-        try:
-            # Run blocking Azure SDK in threadpool (CRITICAL FIX)
-            result = await asyncio.to_thread(
-                self.client.analyze,
-                image_data=image_bytes,
-                visual_features=[VisualFeatures.READ, VisualFeatures.TAGS]
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Azure Vision error {response.status_code}: {response.text}"
             )
 
-            extracted_text = []
-            confidence = None
+        result = response.json()
 
-            # SAFE OCR PARSING
-            if result.read and result.read.blocks:
-                for block in result.read.blocks:
-                    for line in block.lines or []:
-                        extracted_text.append(line.text)
-                        if line.words:
-                            confidence = line.words[0].confidence
+        # ---------- SAFE PARSING ----------
+        extracted_text = []
+        confidence = None
 
-            # SAFE TAG PARSING
-            tags = []
-            if result.tags and result.tags.list:
-                tags = [tag.name for tag in result.tags.list]
+        read_result = result.get("readResult", {})
+        for block in read_result.get("blocks", []):
+            for line in block.get("lines", []):
+                extracted_text.append(line.get("text", ""))
+                if line.get("words"):
+                    confidence = line["words"][0].get("confidence")
 
-            return {
-                "extracted_note": " ".join(extracted_text) if extracted_text else None,
-                "tags": tags,
-                "confidence": confidence,
-            }
+        tags = [
+            t.get("name")
+            for t in result.get("tagsResult", {}).get("values", [])
+        ]
 
-        except Exception as e:
-            # EXPOSE REAL ERROR (IMPORTANT)
-            raise RuntimeError(f"Azure Vision failed: {str(e)}")
+        return {
+            "extracted_note": " ".join(extracted_text) if extracted_text else None,
+            "tags": tags,
+            "confidence": confidence
+        }
